@@ -304,3 +304,100 @@ export function ema$(state, value, length) {
 
   return state.output
 }
+
+
+export const mfi = {
+  count: 0,
+  pmf1: [],
+  nmf1: [],
+  pmf14: 0,
+  nmf14: 0,
+  points: []
+}
+
+// https://school.stockcharts.com/doku.php?id=technical_indicators:money_flow_index_mfi
+export function mfi$(state, price, candle, length) {
+
+  enum MoneyFlowDirection {
+    Positive,
+    Negative
+  }
+
+  interface RawMoneyFlow {
+    direction: MoneyFlowDirection,
+    typicalPrice: number,
+    rawMoneyFlow: number
+  }
+
+  const typicalPrice$ = (high : number, low : number, close : number) => {
+    return (high + low + close / 3)
+  }
+
+  const moneyFlowRatio$ = (pmf14, nmf14) => {
+    return (( nmf14 !== 0 )? (pmf14 / nmf14) : 0)
+  }
+
+  const moneyFlowIndex$ = (moneyFlowRatio: number) => {
+    return (100 - (100/(1 + moneyFlowRatio)))
+  }
+
+  const volume = {
+      buy: candle.bar.vbuy,
+      sell: candle.bar.vsell
+  }
+
+  const absVolume = Math.abs(volume.buy - volume.sell)
+  const typicalPrice = typicalPrice$(price.high, price.low, price.close)
+  if (!state.rmf) {
+    state.rmf = {
+      typicalPrice: typicalPrice,
+      rawMoneyFlow: typicalPrice * absVolume,
+      direction: ((price.open < price.close) ? MoneyFlowDirection.Positive : MoneyFlowDirection.Negative)
+    } as RawMoneyFlow
+  } else {
+    state.rmf = {
+      typicalPrice: typicalPrice,
+      rawMoneyFlow: typicalPrice * absVolume,
+      direction: ((state.rmf.typicalPrice > typicalPrice) ? MoneyFlowDirection.Negative : MoneyFlowDirection.Positive)
+    }
+  }
+  
+
+
+
+  
+
+  if (state.rmf.direction === MoneyFlowDirection.Positive) {
+    state.pmf1[state.count] = state.rmf.rawMoneyFlow
+  } else if (state.rmf.direction === MoneyFlowDirection.Negative) {
+    state.nmf1[state.count] = state.rmf.rawMoneyFlow
+  }
+
+  
+
+  if (state.count >= length) {
+    if (state.count === length) {
+      const reducedpmf1 = state.pmf1.filter(a => a).reduce((a, b) => a += b);
+      const reducednmf1 = state.nmf1.filter(a => a).reduce((a, b) => a += b);
+      // console.log(reducedpmf1, reducednmf1)
+      state.pmf14 = reducedpmf1
+      state.nmf14 = reducednmf1
+    } else {
+      // add mf1 value
+      state.pmf14 += state.count in state.pmf1 ? state.pmf1[state.count] : 0
+      state.nmf14 += state.count in state.nmf1 ? state.nmf1[state.count] : 0
+      // remove oldest mf1 value
+      state.pmf14 -= (state.count - length) in state.pmf1 ? state.pmf1[state.count - length] : 0
+      state.nmf14 -= (state.count - length) in state.nmf1 ? state.nmf1[state.count - length] : 0
+
+      state.pmf1.splice(0, state.pmf1.length - length+1)
+      state.nmf1.splice(0, state.pmf1.length - length+1)
+    }
+    state.output = moneyFlowIndex$(moneyFlowRatio$(state.pmf14, state.nmf14))
+  } else {
+    state.output = 0
+  }
+  // console.log(state.count, length, state.count - length, state.pmf14[state.count], state.pmf1[state.count], state.nmf14[state.count], state.nmf1[state.count])
+
+  return state.output;
+}
