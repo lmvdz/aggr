@@ -1081,7 +1081,7 @@ export default class Chart {
     this._releaseQueueInterval = setInterval(
       this._queueHandler,
       store.state[this.paneId].refreshRate
-    )  as unknown as number
+    ) as unknown as number
   }
 
   /**
@@ -1705,21 +1705,29 @@ export default class Chart {
 
     for (const index of this.marketsIndexes) {
       const alerts = await alertService.getAlerts(index)
-      for (let i = 0; i < alerts.length; i++) {
-        this.renderAlert(alerts[i], api)
-      }
+      Object.keys(alerts).forEach(indicator => {
+        alerts[indicator].forEach(alert => {
+          this.renderAlert(alert, api)
+        })
+      })
     }
 
     this._alertsRendered = true
   }
 
-  onAlert({ timestamp, price, market, type, newPrice }: AlertEvent) {
+  onAlert({
+    timestamp,
+    triggerValue,
+    market,
+    type,
+    newTriggerValue
+  }: AlertEvent) {
     if (this.marketsIndexes.indexOf(market) === -1) {
       return
     }
 
-    const existingAlert = alertService.alerts[market].find(
-      a => a.price === price
+    const existingAlert = alertService.alerts[market]['price'].find(
+      a => a.triggerValue === triggerValue
     )
 
     const api = this.getPriceApi()
@@ -1736,7 +1744,7 @@ export default class Chart {
       )
     }
 
-    const priceline = api.getPriceLine(newPrice || price, index)
+    const priceline = api.getPriceLine(newTriggerValue || triggerValue, index)
 
     switch (type) {
       case AlertEventType.DELETED:
@@ -1753,7 +1761,7 @@ export default class Chart {
         this.renderAlert(
           {
             ...existingAlert,
-            price: newPrice
+            triggerValue: newTriggerValue
           },
           api
         )
@@ -1779,7 +1787,8 @@ export default class Chart {
         this.renderAlert(
           {
             timestamp,
-            price,
+            triggerValue: newTriggerValue,
+            indicator: 'price',
             market
           },
           api,
@@ -1849,7 +1858,7 @@ export default class Chart {
       market: alert.market,
       message: alert.message,
       index,
-      price: alert.price,
+      price: alert.triggerValue,
       lineWidth: store.state.settings.alertsLineWidth,
       lineStyle: store.state.settings.alertsLineStyle,
       color,
@@ -2809,11 +2818,17 @@ export default class Chart {
       this.setTimeToRecycle()
     }
 
-    this._recycleTimeout = setTimeout(this.trimChart.bind(this), 1000 * 60 * 15) as unknown as number
+    this._recycleTimeout = setTimeout(
+      this.trimChart.bind(this),
+      1000 * 60 * 15
+    ) as unknown as number
   }
 
   setupRecycle() {
-    this._recycleTimeout = setTimeout(this.trimChart.bind(this), 1000 * 60 * 3) as unknown as number
+    this._recycleTimeout = setTimeout(
+      this.trimChart.bind(this),
+      1000 * 60 * 3
+    ) as unknown as number
     this.setTimeToRecycle()
   }
 
@@ -2859,8 +2874,9 @@ export default class Chart {
     const market = this.mainIndex
 
     const alert: MarketAlert = {
-      price,
+      triggerValue: price,
       market,
+      indicator: 'price',
       timestamp,
       active: false
     }

@@ -14,7 +14,7 @@ interface AlertResponse {
 
 export interface MarketAlerts {
   market: string
-  alerts: { [indicator: string]: MarketAlert[] }
+  alerts: MarketAlert[]
 }
 
 export interface MarketAlert {
@@ -49,9 +49,7 @@ export enum AlertEventType {
 
 class AlertService {
   alerts: {
-    [market: string]: {
-      [indicator: string]: MarketAlert[]
-    }
+    [market: string]: MarketAlert[]
   } = {}
 
   private publicVapidKey = process.env.VUE_APP_PUBLIC_VAPID_KEY
@@ -99,7 +97,7 @@ class AlertService {
 
     const alerts = await workspacesService.getAlerts(market)
 
-    this.alerts[market] = alerts as { [indicator: string]: MarketAlert[] }
+    this.alerts[market] = alerts
 
     return this.alerts[market]
   }
@@ -113,10 +111,11 @@ class AlertService {
       await this.getAlerts(market)
     }
 
-    const alertIndex = this.alerts[market][indicator].findIndex(
-      (alert: MarketAlert) => alert.triggerValue === triggerValue
+    const alertIndex = this.alerts[market].findIndex(
+      (alert: MarketAlert) =>
+        alert.triggerValue === triggerValue && alert.indicator === indicator
     )
-    const alert = this.alerts[market][indicator][alertIndex]
+    const alert = this.alerts[market][alertIndex]
     return [alert, alertIndex]
   }
 
@@ -167,10 +166,6 @@ class AlertService {
           acc[market] = {}
         }
 
-        if (!acc[market][indicator]) {
-          acc[market][indicator] = []
-        }
-
         acc[market][indicator].push(triggerValue)
 
         return acc
@@ -181,20 +176,20 @@ class AlertService {
     for (const market in markets) {
       for (const indicator in markets[market]) {
         if (!this.alerts[market]) {
-          this.alerts[market] = (await workspacesService.getAlerts(market)) as {
-            [indicator: string]: MarketAlert[]
-          }
+          this.alerts[market] = await workspacesService.getAlerts(market)
         }
 
-        if (!this.alerts[market][indicator].length) {
+        if (
+          !this.alerts[market].filter(a => a.indicator === indicator).length
+        ) {
           continue
         }
 
         let mutation = false
 
-        for (const triggerValue of markets[market][indicator]) {
-          const alert = this.alerts[market][indicator].find(
-            a => a.triggerValue === triggerValue
+        for (const triggerValue of markets[market]) {
+          const alert = this.alerts[market].find(
+            a => a.triggerValue === triggerValue && a.indicator === indicator
           )
 
           if (alert && !alert.triggered) {
@@ -502,9 +497,8 @@ class AlertService {
       indicator,
       triggerValue
     )
-    const marketIndicatorAlerts = this.alerts[market][indicator]
     if (alert) {
-      marketIndicatorAlerts[_alertIndex] = {
+      this.alerts[market][_alertIndex] = {
         ...alert,
         ...newAlert
       }

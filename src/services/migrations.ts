@@ -57,36 +57,50 @@ export const databaseUpgrades = {
     })
   },
   7: async (db: IDBPDatabase<AggrDB>, tx: IDBPTransaction<AggrDB>) => {
-    const objectStore = tx.objectStore('alerts')
-    const markets = (await objectStore.getAllKeys()) as any
+    const alertObjectStore = tx.objectStore('alerts')
+    const markets = (await alertObjectStore.getAllKeys()) as any
 
     for (const market of markets) {
       const [exchange, pair] = parseMarket(market)
       const { local } = getMarketProduct(exchange, pair, true)
 
-      const record = (await objectStore.get(market)) as any
+      const record = (await alertObjectStore.get(market)) as any
 
       let alerts: MarketAlert[]
 
       if (record.prices) {
         alerts = record.prices.map(price => ({
-          price,
+          triggerValue: price,
+          indicator: 'price',
           market: local,
           active: true
         }))
       } else {
-        alerts = record.alerts.map(alert => ({
-          ...alert,
-          market: local
-        }))
+        alerts = record.alerts.map((alert: any) => {
+          let migratedAlert = { ...alert }
+          if (migratedAlert.price) {
+            migratedAlert = {
+              ...migratedAlert,
+              triggerValue: migratedAlert.price,
+              indicator: 'price'
+            } as MarketAlert
+          }
+          delete migratedAlert.price
+          return {
+            alert: migratedAlert,
+            market: local
+          }
+        })
       }
 
-      alerts = alerts.filter(alert => alert.price >= 0)
+      alerts = alerts.filter(alert =>
+        alert.indicator === 'price' ? alert.triggerValue >= 0 : true
+      )
 
-      await (objectStore as any).delete(market)
+      await (alertObjectStore as any).delete(market)
 
       if (alerts.length) {
-        await (objectStore as any).put({
+        await (alertObjectStore as any).put({
           market: local,
           alerts
         })

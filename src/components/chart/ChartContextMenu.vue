@@ -86,7 +86,10 @@
 <script lang="ts">
 import AlertsList from '@/components/alerts/AlertsList.vue'
 import { getTimeframeForHuman } from '@/utils/helpers'
-import { formatMarketPrice } from '@/services/productsService'
+import {
+  formatMarketIndicatorValue,
+  formatMarketPrice
+} from '@/services/productsService'
 import dialogService from '@/services/dialogService'
 import alertService, { MarketAlert } from '@/services/alertService'
 import { ChartPaneState } from '@/store/panesSettings/chart'
@@ -160,14 +163,16 @@ export default {
       }
 
       if (this.alert.message) {
-        return `${this.alert.message} @${formatMarketPrice(
-          this.alert.price,
+        return `${this.alert.message} @${formatMarketIndicatorValue(
+          this.alert.triggerValue,
+          this.alert.indicator,
           this.alert.market
         )}`
       }
 
-      return `${this.alert.market} @${formatMarketPrice(
-        this.alert.price,
+      return `${this.alert.market} @${formatMarketIndicatorValue(
+        this.alert.triggerValue,
+        this.alert.indicator,
         this.alert.market
       )}`
     }
@@ -214,8 +219,9 @@ export default {
       }
 
       const alert: MarketAlert = {
-        price: this.price,
+        triggerValue: this.price,
         market: this.market,
+        indicator: 'price',
         timestamp: this.timestamp,
         active: false
       }
@@ -231,7 +237,11 @@ export default {
           await import('@/components/alerts/CreateAlertDialog.vue')
         ).default,
         {
-          price: +formatMarketPrice(this.alert.price, this.alert.market),
+          price: +formatMarketIndicatorValue(
+            this.alert.triggerValue,
+            this.alert.indicator,
+            this.alert.market
+          ),
           input: this.alert.message,
           edit: true
         }
@@ -240,12 +250,13 @@ export default {
       if (typeof message === 'string' && message !== this.alert.message) {
         const newAlert = {
           ...this.alert,
-          price: this.alert.price,
+          triggerValue: this.alert.triggerValue,
           message: message
-        }
+        } as MarketAlert
         await alertService.moveAlert(
           this.alert.market,
-          this.alert.price,
+          this.alert.indicator,
+          this.alert.triggerValue,
           newAlert,
           this.getPrice()
         )

@@ -103,7 +103,8 @@ export default class AlertEventHandler {
     }
 
     return {
-      price,
+      triggerValue: price,
+      indicator: 'price',
       market
     }
   }
@@ -177,22 +178,24 @@ export default class AlertEventHandler {
     this.isBusy = true
 
     if (this.priceline) {
-      const originalAlert = alertService.alerts[this.alert.market].find(
-        a => a.price === this.alert.price
-      )
+      const originalAlert = alertService.alerts[this.alert.market][
+        'price'
+      ].find(a => a.triggerValue === this.alert.triggerValue)
       const { price, title: message } = this.priceline.options()
 
       const movedAlert = {
         active: false,
-        price,
+        triggerValue: price,
+        indicator: 'price',
         market,
         message
       }
 
-      if (this.alert.price !== price && canMove) {
+      if (this.alert.triggerValue !== price && canMove) {
         await alertService.moveAlert(
           originalAlert.market,
-          originalAlert.price,
+          'price',
+          originalAlert.triggerValue,
           movedAlert,
           this.referencePrice
         )
@@ -206,8 +209,9 @@ export default class AlertEventHandler {
         .coordinateToTime(this.offset.x) as number
 
       const alert: MarketAlert = {
-        price: this.alert.price,
+        triggerValue: this.alert.triggerValue,
         market: this.alert.market,
+        indicator: 'price',
         timestamp,
         active: false
       }

@@ -47,9 +47,13 @@
           v-draggable-market
         >
           {{ index.market }}
-          <span v-if="index.alerts.length > 1" class="badge -invert ml8">{{
-            index.alerts.length
-          }}</span>
+          <span
+            v-if="priceAlerts.length > 1"
+            class="badge -invert ml8"
+            >{{
+              priceAlerts.length
+            }}</span
+          >
         </div>
       </template>
       <template v-slot:control>
@@ -60,11 +64,14 @@
           ><i class="icon-trash"></i
         ></Btn>
       </template>
-      <table v-if="index.alerts.length" class="table alerts-list__table">
+      <table
+        v-if="priceAlerts.length"
+        class="table alerts-list__table"
+      >
         <tbody>
           <tr
-            v-for="alert of index.alerts"
-            :key="alert.id"
+            v-for="(alert, aIndex) of priceAlerts"
+            :key="aIndex"
             class="alerts-list-item"
             :class="[alert.triggered && 'alerts-list-item--triggered']"
           >
@@ -74,10 +81,10 @@
                 v-tippy="{ followCursor: true, distance: 24 }"
                 :title="alert.message"
               >
-                {{ formatPrice(alert.price, alert.market) }}
+                {{ formatPrice(alert.triggerValue, alert.market) }}
               </span>
               <span v-else>
-                {{ formatPrice(alert.price, alert.market) }}
+                {{ formatPrice(alert.triggerValue, alert.market) }}
               </span>
             </td>
             <td
@@ -172,6 +179,13 @@ import { formatMarketPrice } from '@/services/productsService'
       type: Boolean,
       default: false
     }
+  },
+  computed: {
+    priceAlerts() {
+      return this.index.alerts.filter(
+        (a: MarketAlert) => a.indicator === 'price'
+      )
+    }
   }
 })
 export default class extends Vue {
@@ -258,7 +272,8 @@ export default class extends Vue {
     this.isLoading = true
     const status = await alertService.toggleAlert(
       alert.market,
-      alert.price,
+      alert.indicator,
+      alert.triggerValue,
       undefined,
       undefined,
       true
@@ -267,7 +282,7 @@ export default class extends Vue {
 
     if (status.alert) {
       dialogService.confirm({
-        message: `Alert ${alert.market} @<code>${alert.price}</code> is still pending`,
+        message: `Alert ${alert.market}-${alert.indicator} @<code>${alert.triggerValue}</code> is still pending`,
         html: true,
         ok: 'Ok',
         cancel: null
@@ -298,7 +313,14 @@ export default class extends Vue {
     }
   }
 
-  onAlert({ price, market, type, newPrice, message }: AlertEvent) {
+  onAlert({
+    triggerValue,
+    market,
+    indicator,
+    type,
+    newTriggerValue,
+    message
+  }: AlertEvent) {
     let group = this.indexes.find(index => index.market === market)
 
     if (!group) {
@@ -317,7 +339,9 @@ export default class extends Vue {
     }
 
     const index = group.alerts.findIndex(
-      existingAlert => existingAlert.price === price
+      existingAlert =>
+        existingAlert.triggerValue === triggerValue &&
+        existingAlert.indicator === indicator
     )
 
     if (index !== -1) {
@@ -327,7 +351,7 @@ export default class extends Vue {
           this.indexes.splice(this.indexes.indexOf(group), 1)
         }
       } else if (type === AlertEventType.UPDATED) {
-        this.$set(group.alerts[index], 'price', newPrice)
+        this.$set(group.alerts[index], 'price', newTriggerValue)
       } else if (type === AlertEventType.TRIGGERED) {
         this.$set(group.alerts[index], 'triggered', true)
       } else if (type === AlertEventType.ACTIVATED) {
@@ -341,7 +365,8 @@ export default class extends Vue {
       }
     } else if (type === AlertEventType.CREATED) {
       this.$set(group.alerts, group.alerts.length, {
-        price,
+        triggerValue,
+        indicator,
         market
       })
     }
