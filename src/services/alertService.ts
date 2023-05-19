@@ -2,23 +2,24 @@ import store from '@/store'
 import { getApiUrl, handleFetchError } from '@/utils/helpers'
 import aggregatorService from './aggregatorService'
 import dialogService from './dialogService'
-import { formatMarketPrice } from './productsService'
+import { formatMarketIndicatorValue } from './productsService'
 import workspacesService from './workspacesService'
 
 interface AlertResponse {
   error?: string
   markets?: string[]
   alert?: any
-  priceOffset?: number
+  valueOffset?: number
 }
 
 export interface MarketAlerts {
   market: string
-  alerts: MarketAlert[]
+  alerts: { [indicator: string]: MarketAlert[] }
 }
 
 export interface MarketAlert {
-  price: number
+  triggerValue: number
+  indicator: string
   market: string
   message?: string
   active?: boolean
@@ -28,11 +29,12 @@ export interface MarketAlert {
 
 export interface AlertEvent {
   type: AlertEventType
-  price: number
+  triggerValue: number
   market: string
+  indicator: string
   message?: string
   timestamp?: number
-  newPrice?: number
+  newTriggerValue?: number
 }
 
 export enum AlertEventType {
@@ -46,7 +48,11 @@ export enum AlertEventType {
 }
 
 class AlertService {
-  alerts: { [market: string]: MarketAlert[] } = {}
+  alerts: {
+    [market: string]: {
+      [indicator: string]: MarketAlert[]
+    }
+  } = {}
 
   private publicVapidKey = process.env.VUE_APP_PUBLIC_VAPID_KEY
   private pushSubscription: PushSubscription
@@ -93,19 +99,25 @@ class AlertService {
 
     const alerts = await workspacesService.getAlerts(market)
 
-    this.alerts[market] = alerts
+    this.alerts[market] = alerts as { [indicator: string]: MarketAlert[] }
 
     return this.alerts[market]
   }
 
-  async getAlert(market, price) {
+  async getAlert(
+    market,
+    indicator,
+    triggerValue
+  ): Promise<[MarketAlert, number]> {
     if (!this.alerts[market]) {
       await this.getAlerts(market)
     }
 
-    const alert = this.alerts[market].find(alert => alert.price === price)
-
-    return alert
+    const alertIndex = this.alerts[market][indicator].findIndex(
+      (alert: MarketAlert) => alert.triggerValue === triggerValue
+    )
+    const alert = this.alerts[market][indicator][alertIndex]
+    return [alert, alertIndex]
   }
 
   /**
@@ -119,10 +131,11 @@ class AlertService {
           (
             await registration.getNotifications()
           ).map(notification => ({
-            price: notification.data.price,
+            triggerValue: notification.data.triggerValue,
             direction: notification.data.direction,
             message: notification.data.message,
-            market: notification.data.market
+            market: notification.data.market,
+            indicator: notification.data.indicator
           }))
         )
 
@@ -141,50 +154,65 @@ class AlertService {
     })
   }
 
-  async markAlertsAsTriggered(alerts: { price: number; market: string }[]) {
-    const markets = alerts.reduce((acc, { price, market }) => {
-      if (!market || typeof price !== 'number') {
+  async markAlertsAsTriggered(
+    alerts: { triggerValue: number; market: string; indicator: string }[]
+  ) {
+    const markets = alerts.reduce(
+      (acc, { triggerValue, market, indicator }) => {
+        if (!market || typeof triggerValue !== 'number') {
+          return acc
+        }
+
+        if (!acc[market]) {
+          acc[market] = {}
+        }
+
+        if (!acc[market][indicator]) {
+          acc[market][indicator] = []
+        }
+
+        acc[market][indicator].push(triggerValue)
+
         return acc
-      }
-
-      if (!acc[market]) {
-        acc[market] = []
-      }
-
-      acc[market].push(price)
-
-      return acc
-    }, {})
+      },
+      {}
+    )
 
     for (const market in markets) {
-      if (!this.alerts[market]) {
-        this.alerts[market] = await workspacesService.getAlerts(market)
-      }
-
-      if (!this.alerts[market].length) {
-        continue
-      }
-
-      let mutation = false
-
-      for (const price of markets[market]) {
-        const alert = this.alerts[market].find(a => a.price === price)
-
-        if (alert && !alert.triggered) {
-          alert.triggered = true
-          mutation = true
-        } else {
-          console.error(
-            `[alertService] couldn't set alert as triggered (alert not found @${price})`
-          )
+      for (const indicator in markets[market]) {
+        if (!this.alerts[market]) {
+          this.alerts[market] = (await workspacesService.getAlerts(market)) as {
+            [indicator: string]: MarketAlert[]
+          }
         }
-      }
 
-      if (mutation) {
-        await workspacesService.saveAlerts({
-          market,
-          alerts: this.alerts[market]
-        })
+        if (!this.alerts[market][indicator].length) {
+          continue
+        }
+
+        let mutation = false
+
+        for (const triggerValue of markets[market][indicator]) {
+          const alert = this.alerts[market][indicator].find(
+            a => a.triggerValue === triggerValue
+          )
+
+          if (alert && !alert.triggered) {
+            alert.triggered = true
+            mutation = true
+          } else {
+            console.error(
+              `[alertService] couldn't set alert as triggered for ${market} on ${indicator} (alert not found @${triggerValue})`
+            )
+          }
+        }
+
+        if (mutation) {
+          await workspacesService.saveAlerts({
+            market,
+            alerts: this.alerts[market]
+          })
+        }
       }
     }
   }
@@ -218,14 +246,16 @@ class AlertService {
 
   async subscribe(
     market: string,
-    price: number,
-    currentPrice?: number,
+    indicator: string,
+    triggerValue: number,
+    currentValue?: number,
     message?: string
   ) {
     const data = await this.toggleAlert(
       market,
-      price,
-      currentPrice,
+      indicator,
+      triggerValue,
+      currentValue,
       false,
       false,
       message
@@ -235,8 +265,9 @@ class AlertService {
       store.dispatch('app/showNotice', {
         title: `Added ${market} ${this.getNoticeLabel(
           market,
-          price,
-          data.priceOffset
+          indicator,
+          triggerValue,
+          data.valueOffset
         )}`,
         type: 'success'
       })
@@ -245,14 +276,22 @@ class AlertService {
     return data
   }
 
-  async unsubscribe(market: string, price: number) {
-    const data = await this.toggleAlert(market, price, null, true)
+  async unsubscribe(market: string, indicator: string, triggerValue: number) {
+    const data = await this.toggleAlert(
+      market,
+      indicator,
+      triggerValue,
+      null,
+      true
+    )
 
     if (data.alert) {
       const { alert } = data
 
       store.dispatch('app/showNotice', {
-        title: `Removed ${alert.market} ${this.getNoticeLabel(market, price)}`,
+        title: `Removed ${alert.market} ${
+          alert.indicator
+        } ${this.getNoticeLabel(market, indicator, triggerValue)}`,
         type: 'success'
       })
     }
@@ -260,8 +299,9 @@ class AlertService {
     return data
   }
 
-  getPrice(market): Promise<number> {
+  getValue(market, indicator): Promise<number> {
     return new Promise(resolve => {
+      // TODO: get indicator value for market
       aggregatorService.once('prices', marketsStats => {
         const stats = marketsStats[market]
 
@@ -269,15 +309,16 @@ class AlertService {
           return resolve(null)
         }
 
-        resolve(marketsStats[market].price)
+        resolve(stats.price)
       })
     })
   }
 
   async toggleAlert(
     market: string,
-    price: number,
-    currentPrice?: number,
+    indicator: string,
+    triggerValue: number,
+    currentValue?: number,
     unsubscribe?: boolean,
     status?: boolean,
     message?: string
@@ -296,8 +337,9 @@ class AlertService {
         ...subscription,
         origin,
         market,
-        price,
-        currentPrice,
+        indicator,
+        triggerValue,
+        currentValue,
         unsubscribe,
         message,
         status
@@ -323,7 +365,7 @@ class AlertService {
 
   async createAlert(
     createdAlert: MarketAlert,
-    referencePrice?: number,
+    referenceValue?: number,
     askMessage?: boolean
   ) {
     if (!this.alerts[createdAlert.market]) {
@@ -331,8 +373,9 @@ class AlertService {
     }
 
     aggregatorService.emit('alert', {
-      price: createdAlert.price,
+      triggerValue: createdAlert.triggerValue,
       market: createdAlert.market,
+      indicator: createdAlert.indicator,
       timestamp: createdAlert.timestamp,
       type: AlertEventType.CREATED
     })
@@ -343,26 +386,32 @@ class AlertService {
           await import('@/components/alerts/CreateAlertDialog.vue')
         ).default,
         {
-          price: +formatMarketPrice(createdAlert.price, createdAlert.market)
+          triggerValue: +formatMarketIndicatorValue(
+            createdAlert.triggerValue,
+            createdAlert.market,
+            createdAlert.indicator
+          )
         }
       )
 
       if (typeof createdAlert.message !== 'string') {
         aggregatorService.emit('alert', {
-          price: createdAlert.price,
+          triggerValue: createdAlert.triggerValue,
           market: createdAlert.market,
+          indicator: createdAlert.indicator,
           type: AlertEventType.DELETED
         })
         return
       }
     }
 
-    this.alerts[createdAlert.market].push(createdAlert)
+    this.alerts[createdAlert.market][createdAlert.indicator].push(createdAlert)
 
     await this.subscribe(
       createdAlert.market,
-      createdAlert.price,
-      referencePrice,
+      createdAlert.indicator,
+      createdAlert.triggerValue,
+      referenceValue,
       createdAlert.message
     )
       .then(data => {
@@ -378,8 +427,9 @@ class AlertService {
 
     if (createdAlert.active) {
       aggregatorService.emit('alert', {
-        price: createdAlert.price,
+        triggerValue: createdAlert.triggerValue,
         market: createdAlert.market,
+        indicator: createdAlert.indicator,
         timestamp: createdAlert.timestamp,
         message: createdAlert.message,
         type: AlertEventType.ACTIVATED
@@ -393,10 +443,11 @@ class AlertService {
   }
 
   async moveAlert(
-    market,
-    price,
+    market: string,
+    indicator: string,
+    triggerValue: number,
     newAlert: MarketAlert,
-    currentPrice: number
+    currentValue: number
   ): Promise<void> {
     const subscription = await this.getPushSubscription()
 
@@ -411,10 +462,11 @@ class AlertService {
           ...subscription,
           origin,
           market,
-          price,
-          newPrice: newAlert.price,
+          indicator,
+          triggerValue,
+          newTriggerValue: newAlert.triggerValue,
           message: newAlert.message,
-          currentPrice
+          currentValue
         }),
         headers: {
           'Content-Type': 'application/json'
@@ -429,8 +481,9 @@ class AlertService {
           store.dispatch('app/showNotice', {
             title: `Moved ${market} ${this.getNoticeLabel(
               market,
-              price,
-              json.priceOffset
+              indicator,
+              triggerValue,
+              json.valueOffset
             )}`,
             type: 'success'
           })
@@ -444,10 +497,14 @@ class AlertService {
         })
     }
 
-    const alert = await this.getAlert(market, price)
-
+    const [alert, _alertIndex] = await this.getAlert(
+      market,
+      indicator,
+      triggerValue
+    )
+    const marketIndicatorAlerts = this.alerts[market][indicator]
     if (alert) {
-      this.alerts[market][this.alerts[market].indexOf(alert)] = {
+      marketIndicatorAlerts[_alertIndex] = {
         ...alert,
         ...newAlert
       }
@@ -457,21 +514,21 @@ class AlertService {
       })
     } else {
       console.error(
-        `[alertService] couldn't update alert (alert not found @${price})`,
+        `[alertService] couldn't update alert (alert not found @${triggerValue})`,
         this.alerts[market]
       )
     }
 
     aggregatorService.emit('alert', {
-      price,
+      triggerValue,
       market,
-      newPrice: newAlert.price,
+      newTriggerValue: newAlert.triggerValue,
       type: AlertEventType.UPDATED
     })
 
     if (newAlert.active) {
       aggregatorService.emit('alert', {
-        price: newAlert.price,
+        triggerValue: newAlert.triggerValue,
         market,
         message: newAlert.message,
         type: AlertEventType.ACTIVATED
@@ -479,8 +536,16 @@ class AlertService {
     }
   }
 
-  async deactivateAlert({ market, price }: { market: string; price: number }) {
-    const alert = await this.getAlert(market, price)
+  async deactivateAlert({
+    market,
+    indicator,
+    triggerValue
+  }: {
+    market: string
+    indicator: string
+    triggerValue: number
+  }) {
+    const [alert] = await this.getAlert(market, indicator, triggerValue)
 
     if (alert) {
       alert.active = false
@@ -492,22 +557,28 @@ class AlertService {
     }
 
     aggregatorService.emit('alert', {
-      price,
+      triggerValue,
       market,
+      indicator,
       type: AlertEventType.DEACTIVATED
     })
   }
 
   async removeAlert(removedAlert: MarketAlert) {
     aggregatorService.emit('alert', {
-      price: removedAlert.price,
+      triggerValue: removedAlert.triggerValue,
       market: removedAlert.market,
+      indicator: removedAlert.indicator,
       type: AlertEventType.DELETED
     })
 
     if (!removedAlert.triggered) {
       try {
-        await this.unsubscribe(removedAlert.market, removedAlert.price)
+        await this.unsubscribe(
+          removedAlert.market,
+          removedAlert.indicator,
+          removedAlert.triggerValue
+        )
       } catch (err) {
         if (alert && removedAlert.active) {
           store.dispatch('app/showNotice', {
@@ -523,13 +594,16 @@ class AlertService {
       await this.getAlerts(removedAlert.market)
     }
 
-    if (this.alerts[removedAlert.market].length) {
-      const removedAlertIndex = this.alerts[removedAlert.market].findIndex(
-        alert => alert.price === removedAlert.price
-      )
+    if (this.alerts[removedAlert.market][removedAlert.indicator].length) {
+      const removedAlertIndex = this.alerts[removedAlert.market][
+        removedAlert.indicator
+      ].findIndex(alert => alert.triggerValue === removedAlert.triggerValue)
 
       if (removedAlertIndex !== -1) {
-        this.alerts[removedAlert.market].splice(removedAlertIndex, 1)
+        this.alerts[removedAlert.market][removedAlert.indicator].splice(
+          removedAlertIndex,
+          1
+        )
 
         await workspacesService.saveAlerts({
           market: removedAlert.market,
@@ -537,30 +611,41 @@ class AlertService {
         })
       } else {
         console.error(
-          `[alertService] couldn't splice alert (no alerts with price @${removedAlert.price})`,
+          `[alertService] couldn't splice alert (no alerts for ${removedAlert.indicator} with triggerValue @${removedAlert.triggerValue})`,
           this.alerts[removedAlert.market]
         )
       }
     } else {
       console.error(
-        `[alertService] couldn't update alert (no alerts data for market ${removedAlert.price})`
+        `[alertService] couldn't update alert (no alerts data for market-indicator ${removedAlert.market}-${removedAlert.indicator})`
       )
     }
   }
 
-  getNoticeLabel(market: string, price: number, offset?: number) {
-    const priceLabel = `@${formatMarketPrice(price, market)}`
+  getNoticeLabel(
+    market: string,
+    indicator: string,
+    value: number,
+    offset?: number
+  ) {
+    const valueLabel = `@${formatMarketIndicatorValue(
+      value,
+      indicator,
+      market
+    )}`
 
     let offsetLabel = ''
 
     if (offset) {
-      const percent = Math.abs((1 - (price + offset) / price) * -1 * 100)
-      offsetLabel = ` (± ${formatMarketPrice(offset, market)}${
-        percent > 0.5 ? ` ⚠️` : ''
-      })`
+      const percent = Math.abs((1 - (value + offset) / value) * -1 * 100)
+      offsetLabel = ` (± ${formatMarketIndicatorValue(
+        value,
+        indicator,
+        market
+      )}${percent > 0.5 ? ` ⚠️` : ''})`
     }
 
-    return priceLabel + offsetLabel
+    return valueLabel + offsetLabel
   }
 }
 

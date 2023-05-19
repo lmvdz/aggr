@@ -566,6 +566,14 @@ export function formatMarketPrice(price, market): string {
   return price.toFixed(marketDecimals[market])
 }
 
+export function formatMarketIndicatorValue(value, indicator, market): string {
+  if (indicator === 'price') {
+    return formatMarketPrice(value, market)
+  } else {
+    return indicator + ' @ ' + value
+  }
+}
+
 export function formatPrice(price, precision?: number): number {
   if (!precision) {
     return parseInt(price)
