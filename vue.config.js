@@ -32,7 +32,13 @@ process.env.VUE_APP_PROXY_URL =
     ? process.env.DEV_PROXY_URL
     : ''
 process.env.VUE_APP_API_URL =
-  typeof process.env.API_URL !== 'undefined' ? process.env.API_URL : ''
+  process.env.NODE_ENV === 'production'
+    ? typeof process.env.API_URL !== 'undefined'
+      ? process.env.API_URL
+      : ''
+    : typeof process.env.DEV_API_URL !== 'undefined'
+    ? process.env.DEV_API_URL
+    : ''
 process.env.VUE_APP_API_SUPPORTED_PAIRS =
   typeof process.env.API_SUPPORTED_PAIRS !== 'undefined'
     ? process.env.API_SUPPORTED_PAIRS
