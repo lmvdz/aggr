@@ -1,0 +1,38 @@
+diff --git a/dist/GlslCanvas.es.js b/dist/GlslCanvas.es.js
+index 43963e87b7038af48e79ac28d959af412d7d630c..ee400d0660eb85d1183a27169219fc8add67aa7a 100644
+--- a/dist/GlslCanvas.es.js
++++ b/dist/GlslCanvas.es.js
+@@ -453,6 +453,14 @@ function parseUniforms(uniforms) {
+                                     parsed.push.apply(parsed, toConsumableArray(parseUniforms(uniform[u], name + '[' + u + ']')));
+                                 }
+                             }
++                        else if (typeof uniform[0] === "boolean") {
++                            parsed.push({
++                                type: "bool",
++                                method: "1i",
++                                name: name,
++                                value: uniform[0],
++                            });
++                            }
+             }
+             // Boolean
+             else if (typeof uniform === 'boolean') {
+diff --git a/dist/GlslCanvas.js b/dist/GlslCanvas.js
+index 41f301798da487c48c8b43b97737eb7f3aa46f30..ded44e635efc0c536345ab263f87499a4c14c8ca 100644
+--- a/dist/GlslCanvas.js
++++ b/dist/GlslCanvas.js
+@@ -795,6 +795,14 @@ function parseUniforms(uniforms) {
+                                     parsed.push.apply(parsed, toConsumableArray(parseUniforms(uniform[u], name + '[' + u + ']')));
+                                 }
+                             }
++                            else if (typeof uniform[0] === "boolean") {
++                            parsed.push({
++                                type: "bool",
++                                method: "1i",
++                                name: name,
++                                value: uniform[0],
++                            });
++                            }
+             }
+             // Boolean
+             else if (typeof uniform === 'boolean') {

@@ -1,12 +1,14 @@
+@use "variables";
+
 .slide-notice-enter-active,
 .slide-notice-leave-active {
   overflow: hidden;
 }
 .slide-notice-enter-active {
-  transition: all 0.4s $ease-elastic, height 0.4s $ease-out-expo;
+  transition: all 0.4s variables.$ease-elastic, height 0.4s variables.$ease-out-expo;
 }
 .slide-notice-leave-active {
-  transition: all 1s $ease-out-expo;
+  transition: all 1s variables.$ease-out-expo;
 }
 
 .slide-notice-enter,
@@ -70,7 +72,7 @@
   &__wrapper {
     padding: 0.5rem;
     margin: 4px;
-    border-radius: $border-radius-base;
+    border-radius: variables.$border-radius-base;
     background-color: var(--theme-background-200);
 
     display: flex;
@@ -84,12 +86,12 @@
   }
 
   &.-warning .notice__wrapper {
-    background-color: $orange;
+    background-color: variables.$orange;
     color: black;
   }
 
   &.-info .notice__wrapper {
-    background-color: $blue;
+    background-color: variables.$blue;
     color: white;
   }
 

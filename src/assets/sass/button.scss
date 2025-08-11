@@ -1,3 +1,7 @@
+@use "variables";
+
+@use "sass:color";
+
 button {
   color: inherit;
   font-family: inherit;
@@ -9,7 +13,7 @@ button {
   
   &.-arrow {
     &:after {
-      content: $icon-down-thin;
+      content: variables.$icon-down-thin;
       font-family: 'icon';
       position: relative;
       line-height: 0;
@@ -29,7 +33,7 @@ button {
   display: inline-flex;
   align-items: center;
   text-transform: uppercase;
-  font-family: $font-condensed;
+  font-family: variables.$font-condensed;
   font-size: 1rem;
   padding: 0.5rem;
   border: 0;
@@ -55,7 +59,7 @@ button {
   }
   
   &:focus {
-    box-shadow: 0 0 0 6px rgba($green, 0.1);
+    box-shadow: 0 0 0 6px rgba(variables.$green, 0.1);
 
     &.-text {
       box-shadow: none;
@@ -142,34 +146,34 @@ button {
 
   &.-blue {
     color: white;
-    background-color: $blue;
-    border: 1px solid $blue;
+    background-color: variables.$blue;
+    border: 1px solid variables.$blue;
 
     &.-text {
-      color: $blue;
+      color: variables.$blue;
 
       &:focus {
-        background-color: rgba($blue, 0.2);
+        background-color: rgba(variables.$blue, 0.2);
       }
     }
 
     &.-outline {
-      color: $blue;
+      color: variables.$blue;
       background: 0;
 
       &:hover {
         color: white;
-        border-color: lighten($blue, 10%);
+        border-color: color.adjust(variables.$blue, $lightness: 10%);
       }
     }
 
     &:hover {
-      background-color: lighten($blue, 10%);
-      border-color: lighten($blue, 10%);
+      background-color: color.adjust(variables.$blue, $lightness: 10%);
+      border-color: color.adjust(variables.$blue, $lightness: 10%);
 
       &.-text {
         background: 0;
-        color: lighten($blue, 10%);
+        color: color.adjust(variables.$blue, $lightness: 10%);
         border-color: transparent;
       }
     }

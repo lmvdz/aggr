@@ -1,0 +1,2 @@
+patchedDependencies:
+  glslCanvas: patches/glslCanvas.patch

@@ -1,3 +1,5 @@
+@use "variables";
+
 .icon-currency,
 .icon-quote,
 .icon-base {
@@ -7,20 +9,20 @@
 
 #app {
   .icon-currency:before {
-    content: $icon-dollar;
+    content: variables.$icon-dollar;
   }
 
   .icon-quote:before {
-    content: $icon-dollar;
+    content: variables.$icon-dollar;
   }
 
   .icon-base:before {
-    content: $icon-coin;
+    content: variables.$icon-coin;
   }
 
   &[data-prefered-sizing-currency='base'] {
     .icon-currency:before {
-      content: $icon-coin;
+      content: variables.$icon-coin;
     }
   }
 }

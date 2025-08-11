@@ -1,3 +1,5 @@
+@use "variables";
+
 .dialog {
   $self: &;
   position: fixed;
@@ -172,7 +174,7 @@
     letter-spacing: 1px;
     font-size: 1.125rem;
     line-height: 1;
-    font-family: $font-condensed;
+    font-family: variables.$font-condensed;
     font-weight: 400;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -261,20 +263,20 @@
     transition: opacity 0.2s ease-out;
 
     #{$self}__content {
-      transition: transform 0.3s $ease-out-expo;
+      transition: transform 0.3s variables.$ease-out-expo;
 
       @media screen and (min-width: 768px) {
-        transition-timing-function: $ease-elastic;
+        transition-timing-function: variables.$ease-elastic;
       }
     }
   }
 
   &-leave-active {
-    transition: opacity 0.2s $ease-out-expo;
+    transition: opacity 0.2s variables.$ease-out-expo;
     pointer-events: all;
 
     #{$self}__content {
-      transition: transform 0.2s $ease-out-expo;
+      transition: transform 0.2s variables.$ease-out-expo;
     }
   }
 

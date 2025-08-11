@@ -1,3 +1,5 @@
+@use "variables";
+
 html {
   font-size: 16px;
 }
@@ -36,7 +38,7 @@ body {
   width: 100%;
   height: 100%;
   position: relative;
-  transition: transform 0.3s $ease-out-expo;
+  transition: transform 0.3s variables.$ease-out-expo;
   background-color: var(--theme-background-base);
   color: var(--theme-color-base);
 }
@@ -134,7 +136,7 @@ blockquote {
 }
 
 code {
-  font-family: $font-monospace;
+  font-family: variables.$font-monospace;
 
   &.-filled {
     background-color: var(--theme-base-o25);
@@ -160,13 +162,13 @@ p {
 .fade-scale {
   &-enter-active {
     transition:
-      all 0.1s $ease-out-expo,
-      transform 0.1s $ease-elastic;
+      all 0.1s variables.$ease-out-expo,
+      transform 0.1s variables.$ease-elastic;
     pointer-events: none;
   }
 
   &-leave-active {
-    transition: all 0.2s $ease-out-expo;
+    transition: all 0.2s variables.$ease-out-expo;
   }
 
   &-leave,

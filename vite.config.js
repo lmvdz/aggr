@@ -7,6 +7,7 @@ import monacoEditorPlugin from 'vite-plugin-monaco-editor'
 import path from 'path'
 import svgLoader from 'vite-svg-loader'
 import vue from '@vitejs/plugin-vue2'
+import glsl from 'vite-plugin-glsl';
 
 import crypto from 'crypto'
 
@@ -75,7 +76,8 @@ export default defineConfig(({ mode }) => {
       }),
       visualizer(),
       monacoEditorPlugin.default({}),
-      qrcode() // only applies in dev mode
+      qrcode(), // only applies in dev mode
+      glsl()
       // Add the terser plugin for production builds to remove console.log
     ],
     build: {
@@ -109,7 +111,9 @@ export default defineConfig(({ mode }) => {
       devSourcemap: true,
       preprocessorOptions: {
         scss: {
-          additionalData: `@import "@/assets/sass/variables.scss";`
+          silenceDeprecations: ['legacy-js-api'],
+          additionalData: `@use "@/assets/sass/variables.scss" as *;\n`,
+          api: "modern"
         }
       }
     }

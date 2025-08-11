@@ -45,6 +45,12 @@
       :style="{ left: overlayLeft + 'px' }"
     >
       <indicators-overlay v-model="showIndicators" :pane-id="paneId" />
+      <drawing-tools-overlay 
+        :toggleLineDrawing="toggleLineDrawing"
+        :clearLines="clearLines"
+        :isLineDrawingMode="isLineDrawingMode"
+        :pane-id="paneId" 
+      />
       <markets-overlay :pane-id="paneId" />
     </div>
 
@@ -75,6 +81,7 @@ import PaneHeader from '@/components/panes/PaneHeader.vue'
 import ChartLayout from '@/components/chart/Layout.vue'
 import IndicatorsOverlay from '@/components/chart/IndicatorsOverlay.vue'
 import MarketsOverlay from '@/components/chart/MarketsOverlay.vue'
+import DrawingToolsOverlay from '@/components/chart/DrawingToolsOverlay.vue'
 import AlertsList from '@/components/alerts/AlertsList.vue'
 import Btn from '@/components/framework/Btn.vue'
 
@@ -85,6 +92,7 @@ import { Trade } from '@/types/types'
   components: {
     ChartLayout,
     PaneHeader,
+    DrawingToolsOverlay,
     IndicatorsOverlay,
     MarketsOverlay,
     AlertsList,
@@ -98,6 +106,9 @@ export default class ChartComponent extends Mixins(PaneMixin) {
     right: 0,
     time: 0
   }
+
+  isLineDrawingMode = false
+  
 
   private chart: Chart
 
@@ -155,6 +166,20 @@ export default class ChartComponent extends Mixins(PaneMixin) {
 
     if (this.showIndicators && this.$parent.$el.clientHeight > 420) {
       this.showIndicators = true
+    }
+  }
+
+  clearLines() {
+    this.chart.lineDrawingControl.clearLines()
+  }
+
+  toggleLineDrawing() {
+    this.isLineDrawingMode = !this.isLineDrawingMode
+    
+    if (this.isLineDrawingMode) {
+      this.chart.lineDrawingControl.enableDrawingMode()
+    } else {
+      this.chart.lineDrawingControl.disableDrawingMode()
     }
   }
 

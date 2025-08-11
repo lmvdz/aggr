@@ -278,6 +278,8 @@ export default class Trades extends Mixins(PaneMixin) {
 </script>
 
 <style lang="scss">
+@use "sass:color" as color;
+
 .pane-trades {
   &.-extra-small .trade {
     padding: 0 1rem 0 1rem;
@@ -406,7 +408,7 @@ export default class Trades extends Mixins(PaneMixin) {
   }
 
   &.-sell {
-    background-color: lighten($red, 35%);
+    background-color: color.adjust($red, $lightness: 35%);
     color: $red;
 
     .icon-side:before {
@@ -415,7 +417,7 @@ export default class Trades extends Mixins(PaneMixin) {
   }
 
   &.-buy {
-    background-color: lighten($green, 50%);
+    background-color: color.adjust($green, $lightness: 50%);
     color: $green;
 
     .icon-side:before {

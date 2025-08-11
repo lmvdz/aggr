@@ -67,6 +67,7 @@ import {
 } from 'lightweight-charts'
 import { Trade } from '@/types/types'
 import ChartControl from './controls'
+import { LineDrawingControl } from './controls/lineDrawingControl'
 import grouping from './grouping'
 import {
   build,
@@ -86,6 +87,10 @@ import {
   registerInitialBar,
   resetRendererBar
 } from './bars'
+import { CanvasLayerAccess } from './canvasLayerAccess'
+import { CanvasContextLock } from './canvasContextlock'
+import BackgroundWebGLController from './backgroundWebGLController'
+
 
 // @todo: to split into 5 categories of things going on here
 // + chart (create, configure, maintain, destroy)
@@ -97,8 +102,11 @@ export default class Chart {
   paneId: string
   watermark: string
 
+  webglController: BackgroundWebGLController
+  canvasLayerAccess: CanvasLayerAccess
   chartCache: ChartCache
   chartControl: ChartControl
+  lineDrawingControl: LineDrawingControl
   chartInstance: IChartApi
   chartElement: HTMLElement
   loadedIndicators: LoadedIndicator[] = []
@@ -320,7 +328,18 @@ export default class Chart {
       this.chartControl = new ChartControl(this)
     }
     this.chartControl.bindEvents()
+    if (!this.lineDrawingControl) {
+      this.lineDrawingControl = new LineDrawingControl(this)
+    }
+    if (!this.canvasLayerAccess) {
+      this.canvasLayerAccess = new CanvasLayerAccess(this)
+    }
+    if (!this.webglController) {
+      this.webglController = new BackgroundWebGLController(this)
+    }
+
   }
+
 
   /**
    * remove series, destroy this.chartInstance and cancel related events
@@ -2748,6 +2767,13 @@ export default class Chart {
       paneElement.clientWidth,
       paneElement.clientHeight - headerHeight
     )
+
+    if (this.webglController) {
+      const canvas = this.getChartCanvas()
+      if (canvas) {
+        this.webglController.resize(canvas.width, canvas.height)
+      }
+    }
   }
 
   async saveIndicatorPreview(indicatorId) {

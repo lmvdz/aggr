@@ -1,3 +1,7 @@
+@use "variables";
+
+@use "sass:color";
+
 html {
   height: 100%;
 }
@@ -111,11 +115,11 @@ $unit: 'px';
 }
 
 .text-condensed {
-  font-family: $font-condensed;
+  font-family: variables.$font-condensed;
 }
 
 .text-monospace {
-  font-family: $font-monospace !important;
+  font-family: variables.$font-monospace !important;
 }
 
 .d-block {
@@ -211,7 +215,7 @@ $unit: 'px';
 }
 
 .text-danger {
-  color: $red;
+  color: variables.$red;
 }
 
 .text-success {
@@ -239,10 +243,10 @@ $unit: 'px';
 }
 
 .text-info {
-  color: $blue;
+  color: variables.$blue;
 
   @at-root a#{&}:hover {
-    color: lighten($blue, 5%);
+    color: color.adjust(variables.$blue, $lightness: 5%);
   }
 }
 
