@@ -2,14 +2,14 @@
   <div class="chart-overlay__panel indicators-overlay">
     <div class="chart-overlay__content">
       <button 
-        @click="toggleLineDrawing" 
-        :class="{ active: isLineDrawingMode }"
+        @click="$props.toggleLineDrawing" 
+        :class="{ active: $props.isLineDrawingMode }"
         class="btn btn-line-drawing"
       >
         <i class="icon-edit"></i>
         Draw Line
       </button>
-      <button @click="clearLines" class="btn">
+      <button @click="$props.clearLines" class="btn">
         Clear Lines
       </button>
     </div>
@@ -18,11 +18,7 @@
 
 <script lang="ts">
 import Vue from 'vue'
-import { PropType } from 'vue';
-import Chart from './chart'
 import Component from 'vue-class-component'
-
-import { ChartPaneState } from '../../store/panesSettings/chart'
 
 @Component({
   name: 'DrawingToolsOverlay',
